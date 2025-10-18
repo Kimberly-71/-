@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>JavaEE 横向蛇形述职时间轴</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link href="https://cdn.staticfile.org/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+:root{
+    --theme:#4f46e5;
+    --primary-dark:#4338ca;
+    --bg:#f0f9ff;
+    --card:#fff;
+    --text:#111827;
+    --gray:#6b7280;
+    --success:#10b981;
+    --warning:#f59e0b;
+    --danger:#ef4444;
+    --shadow:0 4px 12px rgba(0,0,0,.08);
+    --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;}
+body{background:var(--bg);color:var(--text);}
+header{text-align:center;padding:30px 20px 20px;}
+header h1{font-size:2rem;background:linear-gradient(135deg,var(--theme),#06b6d4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px;}
+.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:14px;transition:.25s;display:inline-flex;align-items:center;gap:6px;box-shadow:var(--shadow);}
+.btn-primary{background:var(--theme);color:#fff;}
+.btn-primary:hover{background:var(--primary-dark);}
+.stats-container{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;max-width:1100px;margin:0 auto 20px;padding:0 10px;}
+.stat-card{background:var(--card);padding:15px;border-radius:var(--radius);box-shadow:var(--shadow);text-align:center;}
+.stat-icon{font-size:2rem;color:var(--theme);}
+.stat-number{font-size:1.5rem;font-weight:700;}
+.stat-label{font-size:.8rem;color:var(--gray);}
+.search-box{max-width:420px;margin:0 auto 15px;position:relative;}
+.search-box input{width:100%;padding:10px 40px 10px 14px;border:1px solid #e5e7eb;border-radius:30px;font-size:14px;}
+.search-box i{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gray);}
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:15px;padding:0 10px;}
+.filter-bar button{border:1px solid var(--theme);background:#fff;color:var(--theme);padding:5px 12px;border-radius:20px;cursor:pointer;font-size:.8rem;transition:.25s;}
+.filter-bar button.active{background:var(--theme);color:#fff;}
+.timeline-wrap{max-width:1100px;margin:0 auto;padding:0 10px 40px;}
+.timeline{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start;}
+.timeline-item{position:relative;width:160px;height:90px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:.25s;}
+.timeline-item:hover{transform:translateY(-4px);box-shadow:0 8px 20px rgba(0,0,0,.12);}
+.item-header{display:flex;justify-content:space-between;align-items:center;}
+.item-date{font-size:.7rem;color:var(--gray);}
+.item-status{width:12px;height:12px;border-radius:50%;background:var(--gray);}
+.item-status.completed{background:var(--success);}
+.item-status.in-progress{background:var(--warning);}
+.item-title{font-size:.9rem;font-weight:600;margin-top:4px;line-height:1.2;}
+.item-dur{font-size:.7rem;color:var(--gray);margin-top:2px;}
+.item-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) scale(.95);width:260px;background:var(--card);color:var(--text);border-radius:var(--radius);padding:12px;box-shadow:0 8px 25px rgba(0,0,0,.15);pointer-events:none;opacity:0;transition:.2s;z-index:10;}
+.timeline-item:hover .item-pop{opacity:1;transform:translateX(-50%) scale(1);}
+.pop-title{font-weight:600;margin-bottom:6px;}
+.pop-desc{font-size:.8rem;color:var(--gray);margin-bottom:8px;}
+.pop-tags{display:flex;flex-wrap:wrap;gap:4px;}
+.pop-tags span{background:#e0e7ff;color:var(--theme);padding:2px 6px;border-radius:10px;font-size:.7rem;}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;}
+.modal-content{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border-radius:var(--radius);padding:24px;width:90%;max-width:420px;box-shadow:0 15px 40px rgba(0,0,0,.2);}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;}
+.modal-header h2{font-size:1.2rem;}
+.close-btn{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--gray);}
+.form-group{margin-bottom:12px;}
+.form-group label{font-size:.8rem;font-weight:500;}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;font-size:14px;}
+.form-group textarea{resize:vertical;min-height:60px;}
+</style>
+</head>
+<body>
+
+<header>
+    <h1><i class="fas fa-timeline"></i> JavaEE 横向蛇形述职时间轴</h1>
+    <p>横向紧凑布局 · 悬停详情 · 点击修改</p>
+</header>
+
+<div class="controls">
+    <button class="btn btn-primary" onclick="addEvent()"><i class="fas fa-plus"></i> 添加事项</button>
+    <button class="btn btn-primary" onclick="exportData()"><i class="fas fa-download"></i> 导出</button>
+    <button class="btn btn-primary" onclick="importData()"><i class="fas fa-upload"></i> 导入</button>
+</div>
+
+<div class="stats-container">
+    <div class="stat-card"><div class="stat-icon"><i class="fas fa-calendar-check"></i></div><div class="stat-number" id="totalEvents">0</div><div class="stat-label">总事项</div></div>
+    <div class="stat-card"><div class="stat-icon"><i class="fas fa-check-circle"></i></div><div class="stat-number" id="completedEvents">0</div><div class="stat-label">已完成</div></div>
+    <div class="stat-card"><div class="stat-icon"><i class="fas fa-spinner"></i></div><div class="stat-number" id="inProgressEvents">0</div><div class="stat-label">进行中</div></div>
+</div>
+
+<div class="search-box">
+    <input id="searchInput" placeholder="搜索标题 / 描述 / 标签" oninput="filterAll()">
+    <i class="fas fa-search"></i>
+</div>
+<div class="filter-bar">
+    <button class="active" onclick="filterCategory('all')">全部</button>
+    <button onclick="filterCategory('全局管理类')">全局管理</button>
+    <button onclick="filterCategory('行政类')">行政</button>
+    <button onclick="filterCategory('技术类')">技术</button>
+    <button onclick="filterCategory('网酷管理类')">网酷</button>
+    <button onclick="filterCategory('纵向类')">纵向</button>
+    <button onclick="filterCategory('横向类')">横向</button>
+</div>
+
+<div class="timeline-wrap">
+    <div class="timeline" id="timeline"></div>
+</div>
+
+<div class="modal" id="editModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">编辑事项</h2>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="editForm" onsubmit="saveEdit(event)">
+            <div class="form-group"><label>日期</label><input type="date" id="editDate" required></div>
+            <div class="form-group"><label>标题</label><input type="text" id="editTitle" required>
+<div class="form-group"><label><textarea id="editDesc">
+<div class="form-group"><label><input type="text" id="editDur" placeholder="例：1周 / 3天">
+<div class="form-group"><label>
+<select id="editStatus"><option value="planned">
+<option value="in-progress">
+<option value="completed">
+
+
+<div class="form-group"><label>
+<select id="editCategory"><option>
+<option>
+<option>
+<option>
+<option>
+<option>
+
+
+<div class="form-group"><label><input type="text" id="editResp">
+<div class="form-group"><label><input type="text" id="editTags" placeholder="例：招新,机试">
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;"><button type="button" class="btn btn-primary" onclick="closeModal()">
+<button type="submit" class="btn btn-primary">
+
+
+</div>
+<script>
+/* ====== 数据 ====== */
+let events = JSON.parse(localStorage.getItem('snakeEvents')) || [
+{date:'2024-09-01',title:'换届交接',dur:'1周',desc:'选定交接同学，当面交接并撰写交接文档',status:'completed',category:'全局管理类',resp:'行政组长+技术组长',tags:['交接文档']},
+{date:'2024-09-10',title:'技术招新',dur:'2周',desc:'宣讲、机试监考、宣传文案、PPT、兴趣课PPT、机试题、考核任务书',status:'completed',category:'技术类',resp:'技术组长',tags:['招新','机试']},
+{date:'2024-10-01',title:'新生考核文档',dur:'3周',desc:'扩展考核文档突出JavaEE特色，明确时间与要求',status:'in-progress',category:'技术类',resp:'技术组长',tags:['考核方案']},
+{date:'2024-12-30',title:'技术栈更新',dur:'1周',desc:'每学期末修订并补充组内技术路线',status:'planned',category:'技术类',resp:'技术组长',tags:['技术路线']},
+{date:'2025-01-15',title:'财务报销',dur:'1周',desc:'学期末报销材料整理与提交',status:'planned',category:'行政类',resp:'行政组长',tags:['报销']},
+{date:'2024-09-15',title:'实习证明',dur:'1周',desc:'转达通知并整理纸质实习证明表',status:'completed',category:'网酷管理类',resp:'行政组长',tags:['实习证明']},
+{date:'2024-09-01',title:'例会编排',dur:'每学期',desc:'每学期初排定例会主讲与参与名单',status:'completed',category:'行政类',resp:'行政组长',tags:['例会编排']},
+{date:'2024-09-01',title:'物资管理',dur:'每学期',desc:'每学期统计与管理JavaEE组物资',status:'in-progress',category:'行政类',resp:'行政组长',tags:['物资']},
+{date:'2024-09-01',title:'项目跟进',dur:'持续',desc:'每周跟进项目进度，鼓励组队做项目并做好交接',status:'in-progress',category:'横向类',resp:'技术组长',tags:['项目','组队']},
+{date:'2024-10-01',title:'竞赛推送',dur:'持续',desc:'持续提供近期竞赛信息并跟进项目比赛进度',status:'in-progress',category:'纵向类',resp:'行政组长',tags:['竞赛']},
+{date:'2024-09-01',title:'消息传达',dur:'持续',desc:'及时向组内成员传达各类通知并确保执行',status:'in-progress',category:'全局管理类',resp:'行政组长',tags:['通知']},
+{date:'2024-09-01',title:'例会主持',dur:'每周',desc:'每周例会：提前发布选题、互动讨论、出勤记录、会议记录上传钉钉',status:'in-progress',category:'技术类',resp:'技术组长+行政组长',tags:['例会','记录']}
+];
+let currentCategory = 'all';
+let editingId = null;
+
+/* ====== 渲染 ====== */
+function render(list){
+    const line = document.getElementById('timeline');
+    line.innerHTML = '';
+    list.forEach((it, i) => {
+        const item = document.createElement('div');
+        item.className = 'timeline-item';
+        const row = Math.floor(i / 6);
+        if (row % 2 === 1) item.style.order = 6 - (i % 6);
+        item.innerHTML = `
+        <div class="item-header">
+            <span class="item-date">${it.date}</span>
+            <span class="item-status ${it.status}"></span>
+        </div>
+        <div class="item-title">${it.title}</div>
+        <div class="item-dur">${it.dur}</div>
+        <div class="item-pop">
+            <div class="pop-title">${it.title}</div>
+            <div class="pop-desc">${it.desc}</div>
+            <div class="pop-tags">${it.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        </div>`;
+        item.onclick = () => editEvent(it.id);
+        line.appendChild(item);
+    });
+    updateStats();
+}
+render(events);
+
+/* ====== 统计 ====== */
+function updateStats(){
+    document.getElementById('totalEvents').textContent = events.length;
+    document.getElementById('completedEvents').textContent = events.filter(e=>e.status==='completed').length;
+    document.getElementById('inProgressEvents').textContent = events.filter(e=>e.status==='in-progress').length;
+}
+
+/* ====== 搜索 + 筛选 ====== */
+function filterCategory(cate){
+    currentCategory = cate;
+    document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.toggle('active', b.textContent.includes(cate==='all'?'全部':cate)));
+    filterAll();
+}
+function filterAll(){
+    const key = document.getElementById('searchInput').value.trim().toLowerCase();
+    let show = events;
+    if(currentCategory!=='all') show = show.filter(e=>e.category===currentCategory);
+    if(key) show = show.filter(e=>e.title.toLowerCase().includes(key)||e.desc.toLowerCase().includes(key)||e.tags.some(t=>t.toLowerCase().includes(key)));
+    render(show);
+}
+
+/* ====== 编辑 ====== */
+function editEvent(id){
+    const it = events.find(e=>e.id===id);
+    if(!it)return;
+    editingId = id;
+    document.getElementById('modalTitle').textContent = '编辑事项';
+    document.getElementById('editDate').value = it.date;
+    document.getElementById('editTitle').value = it.title;
+    document.getElementById('editDesc').value = it.desc;
+    document.getElementById('editDur').value = it.dur;
+    document.getElementById('editStatus').value = it.status;
+    document.getElementById('editCategory').value = it.category;
+    document.getElementById('editResp').value = it.resp;
+    document.getElementById('editTags').value = it.tags.join(',');
+    document.getElementById('editModal').style.display = 'block';
+}
+function closeModal(){
+    document.getElementById('editModal').style.display = 'none';
+    editingId = null;
+}
+function saveEdit(e){
+    e.preventDefault();
+    const it = events.find(e=>e.id===editingId);
+    if(!it)return;
+    it.date = document.getElementById('editDate').value;
+    it.title = document.getElementById('editTitle').value;
+    it.desc = document.getElementById('editDesc').value;
+    it.dur = document.getElementById('editDur').value;
+    it.status = document.getElementById('editStatus').value;
+    it.category = document.getElementById('editCategory').value;
+    it.resp = document.getElementById('editResp').value;
+    it.tags = document.getElementById('editTags').value.split(',').map(t=>t.trim()).filter(t=>t);
+    localStorage.setItem('snakeEvents', JSON.stringify(events));
+    closeModal();
+    filterAll();
+}
+function addEvent(){
+    const newEvent = {
+        id: Date.now().toString(),
+        date: new Date().toISOString().split('T')[0],
+        title:'新事项',
+        dur:'1周',
+        desc:'',        status:'planned',
+        category:'行政类',
+        resp:'',
+        tags:[]
+    };
+    events.push(newEvent);
+    localStorage.setItem('snakeEvents', JSON.stringify(events));
+    render(events);
+    editEvent(newEvent.id);
+}
+function exportData(){
+    const blob = new Blob([JSON.stringify(events, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `javaee-snake-timeline-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+function importData(){
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = e=>{
+        const file = e.target.files[0];
+        if(!file)return;
+        const reader = new FileReader();
+        reader.onload = e=>{
+            try{
+                const imported = JSON.parse(e.target.result);
+                if(!Array.isArray(imported))throw 0;
+                if(confirm('导入将覆盖现有数据，继续？')){
+                    events = imported;
+                    localStorage.setItem('snakeEvents', JSON.stringify(events));
+                    filterAll();
+                }
+            }catch{alert('无效文件');}
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+/* ====== 键盘 / 点击外部 ====== */
+window.onclick = e=>{
+    if(e.target.id==='editModal')closeModal();
+};
+document.addEventListener('keydown', e=>{
+    if(e.key==='Escape')closeModal();
+    if((e.ctrlKey||e.metaKey)&&e.key==='n'){e.preventDefault();addEvent();}
+});
+</script>
+</body>
+</html>
